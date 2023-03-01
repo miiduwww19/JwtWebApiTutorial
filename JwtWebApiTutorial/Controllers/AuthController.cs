@@ -55,10 +55,56 @@ namespace JwtWebApiTutorial.Controllers
                 return BadRequest("Wrong password");
             }
             string token = CreateToken(User);
+
+            var refreshToken = GenerateRefreshToken();
+            SetRefreshToken(refreshToken);
+
+            return Ok(token);
+        }
+
+        [HttpPost("refresh-token")]
+        public async Task<ActionResult<string>> RefreshToken()
+        {
+            var refreshToken = Request.Cookies["refreshToken"];
+            if (!User.RefershToken.Equals(refreshToken))
+            {
+                return Unauthorized("Invalied Refresh Token.");
+            }
+            else if (User.TokenExpires < DateTime.Now)
+            {
+                return Unauthorized("Token expired.");
+            }
+            string token = CreateToken(User);
+            var newRefreshToken = GenerateRefreshToken();
+            SetRefreshToken(newRefreshToken);
+
             return Ok(token);
         }
 
 
+        private RefershToken GenerateRefreshToken()
+        {
+            var refershToken = new RefershToken
+            {
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Expires = DateTime.Now.AddDays(7),
+                Created = DateTime.Now
+            };
+            return refershToken;
+        }
+        private void SetRefreshToken(RefershToken newRefershToken)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = newRefershToken.Expires
+            };
+            Response.Cookies.Append("refreshToken", newRefershToken.Token, cookieOptions);
+
+            User.RefershToken = newRefershToken.Token;
+            User.TokenCreated = newRefershToken.Created;
+            User.TokenExpires = newRefershToken.Expires;
+        }
         private string CreateToken(User user)
         {
             List<Claim> claims = new List<Claim>
