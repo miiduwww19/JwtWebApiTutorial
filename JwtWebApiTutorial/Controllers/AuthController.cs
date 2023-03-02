@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json.Linq;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -32,13 +33,17 @@ namespace JwtWebApiTutorial.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<User>> register(UserDto userDto)
+        public async Task<ActionResult<User>> register(UserRegisterDto userDto)
         {
             CreatePasswordHash(userDto.Password, out byte[] passwordHash, out byte[] passwordSalt);
 
             User.Username = userDto.Username;
             User.PasswordHash = passwordHash;
             User.PasswordSalt = passwordSalt;
+
+            User.Firstname = userDto.Firstname;
+            User.Lastname = userDto.Lastname;
+            User.Email = userDto.Email; 
 
             return Ok(User);
         }
@@ -58,6 +63,8 @@ namespace JwtWebApiTutorial.Controllers
 
             var refreshToken = GenerateRefreshToken();
             SetRefreshToken(refreshToken);
+
+            GetDataOfToken(token);
 
             return Ok(token);
         }
@@ -82,6 +89,30 @@ namespace JwtWebApiTutorial.Controllers
             return Ok(token);
         }
 
+        //[HttpGet("DataOfToken")]
+        //public  ActionResult<string> DataOfToken(string Token)
+        //{
+        //    GetDataOfToken(Token);
+        //    return Ok("asd");
+        //}
+
+
+
+        private void GetDataOfToken(string Token)
+        {
+            JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
+            JwtSecurityToken tokenS = handler.ReadToken(Token) as JwtSecurityToken;
+
+            var oo = tokenS.Payload.First();
+            var key = oo.Key;
+            var value = oo.Value;
+            var asdasdasd = tokenS.Claims.FirstOrDefault().Value;
+            var profile = tokenS.Payload.Where(x => x.Value.Equals("Admin")).FirstOrDefault().Value;
+            //JObject o = JObject.Parse(asdasdasd);
+            //string cardType = o.SelectToken("$.roles." + "Rolename" + ".Type").ToString();
+        }
+
+
         private RefershToken GenerateRefreshToken()
         {
             var refershToken = new RefershToken
@@ -105,15 +136,27 @@ namespace JwtWebApiTutorial.Controllers
             User.TokenCreated = newRefershToken.Created;
             User.TokenExpires = newRefershToken.Expires;
         }
-        
-        
         private string CreateToken(User user)
         {
+            List<object> data = new List<object>();
+            
+            data.Add(user.Firstname);
+            data.Add(user.Lastname);
+            data.Add(user.Email);
+            
+            string serialised = Newtonsoft.Json.JsonConvert.SerializeObject(data);
+
+            IReadOnlyDictionary<string, object?> someData = new Dictionary<string, object?>();
+
+
             List<Claim> claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, "Admin")
+                new Claim(ClaimTypes.Role, "Admin"),
+                
             };
+
+            
 
             var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(
                 _configuration.GetSection("AppSettings:Token").Value));
@@ -123,7 +166,8 @@ namespace JwtWebApiTutorial.Controllers
             var token = new JwtSecurityToken(
                 claims: claims,
                 expires: DateTime.Now.AddDays(1),
-                signingCredentials: creds);
+                signingCredentials: creds
+                );
 
             var jwt = new JwtSecurityTokenHandler().WriteToken(token);
 
