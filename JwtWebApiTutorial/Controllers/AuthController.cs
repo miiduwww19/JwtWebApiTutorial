@@ -75,12 +75,12 @@ namespace JwtWebApiTutorial.Controllers
                 return Unauthorized("Token expired.");
             }
             string token = CreateToken(User);
+            
             var newRefreshToken = GenerateRefreshToken();
             SetRefreshToken(newRefreshToken);
 
             return Ok(token);
         }
-
 
         private RefershToken GenerateRefreshToken()
         {
@@ -105,6 +105,8 @@ namespace JwtWebApiTutorial.Controllers
             User.TokenCreated = newRefershToken.Created;
             User.TokenExpires = newRefershToken.Expires;
         }
+        
+        
         private string CreateToken(User user)
         {
             List<Claim> claims = new List<Claim>
